@@ -88,12 +88,13 @@ class DatasetCV(object):
             data_subsets = OrderedDict()
             for i, subset in enumerate(subsets):
                 subset_data = tuple(data[subset] for data in self._data)
-                if len(subset_data) == 2:
-                    X, y = subset_data
-                else:
-                    X, = subset_data
-                    y = None
-                data_subsets[labels[i]] = (X, y)
+                # if len(subset_data) == 2:
+                #     X, y = subset_data
+                # else:
+                #     X, = subset_data
+                #     y = None
+                # data_subsets[labels[i]] = (X, y)
+                data_subsets[labels[i]] = subset_data
             yield data_subsets
 
     def __iter__(self):
@@ -104,9 +105,16 @@ class DatasetCV(object):
         for data_subsets in self.get_data_subsets():
             datasets = {}
             for label, data in data_subsets.items():
-                X, y = data
-                datasets[label] = DenseDesignMatrix(X=X, y=y)
-
+                try:
+                    X, y = data
+                    data_subset = DenseDesignMatrix(
+                        X=X, y=y, X_labels=self.dataset.X_labels,
+                        y_labels=self.dataset.y_labels)
+                except:
+                    data_subset = self.dataset.__class__(
+                        data=data, data_specs=self.dataset.data_specs)
+                assert isinstance(data_subset, self.dataset.__class__)
+                datasets[label] = data_subset
             # preprocessing
             if self.preprocessor is not None:
                 self.preprocessor.apply(datasets['train'],
@@ -242,7 +250,7 @@ class DatasetKFold(DatasetCV):
     """
     def __init__(self, dataset, n_folds=3, shuffle=False, random_state=None,
                  **kwargs):
-        n = dataset.X.shape[0]
+        n = dataset.get_num_examples()
         cv = KFold(n, n_folds=n_folds, shuffle=shuffle,
                    random_state=random_state)
         super(DatasetKFold, self).__init__(dataset, cv, **kwargs)
@@ -364,7 +372,7 @@ class DatasetValidationKFold(DatasetCV):
     """
     def __init__(self, dataset, n_folds=3, shuffle=False, random_state=None,
                  **kwargs):
-        n = dataset.X.shape[0]
+        n = dataset.get_num_examples()
         cv = ValidationKFold(n, n_folds, shuffle, random_state)
         super(DatasetValidationKFold, self).__init__(dataset, cv, **kwargs)
 
@@ -429,7 +437,7 @@ class DatasetValidationShuffleSplit(DatasetCV):
     """
     def __init__(self, dataset, n_iter=10, test_size=0.1, valid_size=None,
                  train_size=None, random_state=None, **kwargs):
-        n = dataset.X.shape[0]
+        n = dataset.get_num_examples()
         cv = ValidationShuffleSplit(n, n_iter, test_size, valid_size,
                                     train_size, random_state)
         super(DatasetValidationShuffleSplit, self).__init__(dataset, cv,
