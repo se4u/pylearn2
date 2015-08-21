@@ -31,6 +31,7 @@ BaseProxy = namedtuple('BaseProxy', ['callable', 'positionals',
 
 
 class Proxy(BaseProxy):
+
     """
     An intermediate representation between initial YAML parse and object
     instantiation.
@@ -337,6 +338,7 @@ def initialize():
     yaml.add_constructor('!import', constructor_import)
     yaml.add_constructor("!float", constructor_float)
 
+    yaml.add_constructor("!include", constructor_include)
     pattern = re.compile(SCIENTIFIC_NOTATION_REGEXP)
     yaml.add_implicit_resolver('!float', pattern)
 
@@ -404,7 +406,7 @@ def multi_constructor_import(loader, tag_suffix, node):
 def constructor_import(loader, node):
     """
     Callback used by PyYAML when a "!import <str>" tag is encountered.
-    This tag exects a (quoted) string as argument.
+    This tag expects a (quoted) string as argument.
     """
     value = loader.construct_scalar(node)
     if '.' not in value:
@@ -415,7 +417,7 @@ def constructor_import(loader, node):
 def constructor_float(loader, node):
     """
     Callback used by PyYAML when a "!float <str>" tag is encountered.
-    This tag exects a (quoted) string as argument.
+    This tag expects a (quoted) string as argument.
     """
     value = loader.construct_scalar(node)
     return float(value)
@@ -451,6 +453,15 @@ def construct_mapping(node, deep=False):
         mapping[key] = value
     return mapping
 
+
+def constructor_include(loader, node):
+    """
+    Callback used by PyYAML when a "!include <str>" tag is encountered.
+    This tag expects a (quoted) string as argument.
+    """
+    filename = loader.construct_scalar(node)
+    with open(filename, 'r') as f:
+        return yaml.load(f)
 
 if __name__ == "__main__":
     initialize()
