@@ -334,6 +334,7 @@ def initialize():
     yaml.add_multi_constructor('!obj:', multi_constructor_obj)
     yaml.add_multi_constructor('!pkl:', multi_constructor_pkl)
     yaml.add_multi_constructor('!import:', multi_constructor_import)
+    yaml.add_multi_constructor("!include:", multi_constructor_include)
 
     yaml.add_constructor('!import', constructor_import)
     yaml.add_constructor("!float", constructor_float)
@@ -462,6 +463,29 @@ def constructor_include(loader, node):
     filename = loader.construct_scalar(node)
     with open(filename, 'r') as f:
         return yaml.load(f)
+
+
+def multi_constructor_include(loader, tag_suffix, node):
+    """
+    Callback used by PyYAML when a "!include:" tag is encountered.
+
+    See PyYAML documentation for details on the call signature.
+    """
+    yaml_src = yaml.serialize(node)
+    construct_mapping(node)
+    mapping = loader.construct_mapping(node)
+    assert hasattr(mapping, 'keys')
+    assert hasattr(mapping, 'values')
+    for key in mapping.keys():
+        if not isinstance(key, six.string_types):
+            message = "Received non string object (%s) as " \
+                      "key in mapping." % str(key)
+            raise TypeError(message)
+
+    with open(tag_suffix, 'r') as f:
+        filled_template = f.read() % (mapping)
+        return yaml.load(filled_template)
+
 
 if __name__ == "__main__":
     initialize()
